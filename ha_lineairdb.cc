@@ -767,6 +767,12 @@ int ha_lineairdb::index_next(uchar *buf)
     thd_mark_transaction_to_rollback(userThread, 1);
     return HA_ERR_LOCK_DEADLOCK;
   }
+
+  if (tx->get_selected_table_name() != db_table_name)
+  {
+    tx->choose_table(db_table_name);
+  }
+
   std::string primary_key = secondary_index_results_[current_position_in_index_];
   auto result = tx->read(primary_key);
   if (set_fields_from_lineairdb(buf, result.first, result.second))
@@ -798,6 +804,12 @@ int ha_lineairdb::index_next_same(uchar *buf, const uchar *key, uint key_len)
     thd_mark_transaction_to_rollback(userThread, 1);
     return HA_ERR_LOCK_DEADLOCK;
   }
+
+  if (tx->get_selected_table_name() != db_table_name)
+  {
+    tx->choose_table(db_table_name);
+  }
+
   std::string primary_key = secondary_index_results_[current_position_in_index_];
   auto result = tx->read(primary_key);
   if (set_fields_from_lineairdb(buf, result.first, result.second))
@@ -951,6 +963,11 @@ int ha_lineairdb::rnd_next(uchar *buf)
   {
     thd_mark_transaction_to_rollback(userThread, 1);
     return HA_ERR_LOCK_DEADLOCK;
+  }
+
+  if (tx->get_selected_table_name() != db_table_name)
+  {
+    tx->choose_table(db_table_name);
   }
 
   assert(tx->get_selected_table_name() == db_table_name);
@@ -1172,7 +1189,7 @@ int ha_lineairdb::external_lock(THD *thd, int lock_type)
   const bool tx_is_ready_to_commit = lock_type == F_UNLCK;
   if (tx_is_ready_to_commit)
   {
-    if (tx->is_a_single_statement())
+    if (!tx->is_not_started() && tx->is_a_single_statement())
     {
       lineairdb_commit(lineairdb_hton, thd, true);
     }
